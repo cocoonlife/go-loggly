@@ -55,6 +55,9 @@ type Client struct {
 	// Token string.
 	Token string
 
+	// ShutdownChan is used to signal termination of start goro
+	ShutdownChan chan struct{}
+
 	// Default properties.
 	Defaults Message
 	buffer   [][]byte
@@ -80,6 +83,7 @@ func New(token string, tags ...string) *Client {
 		Endpoint:      strings.Replace(api, "{token}", token, 1),
 		buffer:        make([][]byte, 0),
 		Defaults:      defaults,
+		ShutdownChan:  make(chan struct{}),
 	}
 
 	c.Tag(tags...)
@@ -290,6 +294,12 @@ func (c *Client) tagsList() string {
 // Start flusher.
 func (c *Client) start() {
 	for {
+		select {
+		case _, ok := <-c.ShutdownChan:
+			if !ok {
+				return
+			}
+		}
 		time.Sleep(c.FlushInterval)
 		debug("interval %v reached", c.FlushInterval)
 		c.Flush()
